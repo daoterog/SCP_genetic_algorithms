@@ -48,6 +48,55 @@ def calculatecosts(subsets, costs):
 
     return z
 
+
+def check_factibility(df, subsets):
+
+    """
+    Check factibility of a solution.
+
+    Args:
+        df: DataFrame with elements and subsets
+        subsets: solution
+
+    Output:
+        factible: Boolean response
+    """
+
+    df_copy = df.copy()
+
+    subset_elements = df_copy[df_copy[subsets] == 1].index
+    df_copy.drop(subset_elements, axis = 0, inplace = True)
+
+    factible = df_copy.empty
+
+    return factible
+
+def check_redundancy(df, subsets, subset):
+
+    """
+    Check if is unnecesary to add a subset. 
+
+    Args:
+        df: DataFrame with elements and subsets
+        subsets: current solution
+        subset: subset that is attempted to add
+
+    Output:
+        redundant: Boolean response
+    """
+
+    df_copy = df.copy()
+
+    subset_elements = df_copy[df_copy[subsets] == 1].index
+    df_copy.drop(subset_elements, axis = 0, inplace = True)
+
+    nelements = df_copy.sum()
+
+    if nelements[subset] == 0:
+        redundant = True
+
+    return redundant
+
 def data(c_nsub, g_nsub, n_nsub, c_subset, g_subset, n_subset):
     c_max = max(c_nsub)
     g_max = max(g_nsub)
