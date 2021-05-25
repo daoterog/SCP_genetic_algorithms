@@ -1,4 +1,5 @@
-from auxiliaries import check_factibility, calculatecost, check_redundancy
+from auxiliaries import check_factibility, calculatecosts
+from neighborhoods import find_neighborhoods
 import numpy as np
 import pandas as pd
 import time
@@ -17,24 +18,29 @@ def generate_solution(df, costs, individual):
     """
 
     subsets = []
-    individual_copy = individual.copy()
     sorted_keys = individual.sort_values()
+
+    df_copy = df.copy()
 
     # Add subsets in the order specified by the random keys and 
     # stop when factibility is reached
-    for key in sorted_keys.index.tolist():
-        subsets.append(key)
-        individual[key] = 1
-        factible = check_factibility(df, subsets)
+    for subset in sorted_keys.index.tolist():
+        subsets.append(subset)
+        
+        subset_elements = df_copy[df_copy[subset] == 1].index
+        df_copy.drop(subset_elements, inplace = True, axis = 0)
+        df_copy.drop([subset], inplace = True, axis = 1)
 
-        if factible:
+        if df_copy.empty:
             break
 
-    individual[individual != 1] = 0
+    individual_aux = pd.Series(np.zeros(len(individual)))
+    individual_aux[subsets] = 1
 
-    z = caluclatecost(subsets, costs)
+    z = calculatecosts(subsets, costs)
+    print(z)
 
-    return individual, z
+    return individual_aux, z
 
 def generate_population(df, costs, npop):
     """
@@ -58,15 +64,16 @@ def generate_population(df, costs, npop):
     zs = []
 
     # Convert random keys into binary array
-    for i in range(npop):
-        individual = population.iloc[i,:]
+    for index, row in population.iterrows():
 
-        population.iloc[i,:], z = generate_solution(df, costs, individual)
+        population.loc[index,:], z = generate_solution(df, costs, row)
         zs.append(z)
+
+    zs = pd.Series(zs)
 
     return population, zs
 
-def tournament(npop, zs):
+def tournament(zs):
 
     """
     Chooses parents to perform crossover.
@@ -81,12 +88,12 @@ def tournament(npop, zs):
 
     # Generate childs
     parents = []
-    for i in range(1):
-        child1 = np.random.randint(npop)
-        child2 = np.random.randint(npop)
+    for i in range(2):
+        child1 = zs.sample(1).index.tolist()[0]
+        child2 = zs.sample(1).index.tolist()[0]
 
         while child1 == child2 and parents.count(child1) == 0 and parents.count(child2) == 0:
-            child2 = np.random.randint(npop)
+            child2 = zs.sample(1).index.tolist()[0]
 
         if zs[child1] < zs[child2]:
             parents.append(child1)
@@ -95,7 +102,7 @@ def tournament(npop, zs):
 
     return parents
 
-def make_factible(df, costs, subsets_child):
+def make_factible(df, costs, subsets_child, neigh = 1, n = 10, n1 = 10, n2 = 10, alpha = 0.3):
 
     """
     Make a non-factible solution factible.
@@ -109,30 +116,10 @@ def make_factible(df, costs, subsets_child):
         child: factible solution.
     """
 
-    subsets = subsets_child
+    subsets = find_neighborhoods(df, costs, subsets_child, neigh, n, n1, n2, alpha)
 
-    df_copy = df.copy()
-    costs_copy = costs.copy()
-
-    while not check_factibility(df, subsets):
-
-        # Create aux arrays
-        nelements = df_copy.sum()
-
-        # Delete substes that no longer have elements
-        no_elements = nelements[nelements == 0].index.tolist()
-        if no_elements != []:
-            df_copy.drop(no_elements, axis = 1, inplace = True)
-            costs_copy.drop(no_elements, inplace = True)
-            nelements = df_copy.sum()
-
-        # Select subset with the most elements
-        max_elements = nelements.max()
-        bigger_subsets = nelements[nelements == max_elements].index.tolist()
+    return subsets
         
-
-
-
 def crossover(df, costs, population, parents):
 
     """
@@ -152,27 +139,111 @@ def crossover(df, costs, population, parents):
     crosspoint = np.random.randint(df.shape[1]-2)+1
 
     # Make the mix
+
+    # Child1
     child1_parent1 = population.iloc[parents[0],1:crosspoint]
     child1_parent2 = population.iloc[parents[1],crosspoint:]
     subsets_child1_parent1 = child1_parent1[child1_parent1 == 1].index.tolist()
     subsets_child1_parent2 = child1_parent2[child1_parent2 == 1].index.tolist()
     subsets_child1 = subsets_child1_parent1
 
+    df_copy = df.copy()
+
+    subset_elements = df_copy[df_copy[subsets_child1] == 1].index
+    df_copy.drop(subset_elements, axis = 0, inplace = True)
+    df_copy.drop(subsets_child1, axis = 1, inplace = True)
+
+    # Append subset of second parent if it is not redundant
     for subset in subsets_child1_parent2:
 
-        if not check_redundancy(df, subsets_child1, subset):
+        nelements = df_copy.sum()
+
+        if not (nelements[subset] == 0):
             subsets_child1.append(subset)
 
-    child2 = (population.iloc[parents[1],1:crosspoint].tolist() + 
-        population.iloc[parents[0],crosspoint:].tolist())
-    
+            # Update dataframe
+            subset_elements = df_copy[df_copy[subset] == 1].index
+            df_copy.drop(subset_elements, axis = 0, inplace = True)
+            df_copy.drop(subset, axis = 1, inplace = True)
+
     # Check factibitility and fix if not factible
-    if not check_factibility(child1):
-        child1 = make_factible(df, costs, child1)
+    if not check_factibility(df, subsets_child1):
+        print('NOT FEASIBLE')
+        child1 = make_factible(df, costs, subsets_child1)
+        print('FOUND SOLUTION')
+    else:
+        print('FEASIBLE')
+        child1 = subsets_child1
+        print('FOUND SOLUTION')
 
-    if not check_factibility(child2):
-        child2 = make_factible(df, costs, child2)
+    # Child2
+    child2_parent1 = population.iloc[parents[1],1:crosspoint]
+    child2_parent2 = population.iloc[parents[0],crosspoint:]
+    subsets_child2_parent1 = child2_parent1[child2_parent1 == 1].index.tolist()
+    subsets_child2_parent2 = child2_parent2[child2_parent2 == 1].index.tolist()
+    subsets_child2 = subsets_child2_parent1
 
+    df_copy = df.copy()
+
+    subset_elements = df_copy[df_copy[subsets_child2] == 1].index
+    df_copy.drop(subset_elements, axis = 0, inplace = True)
+    df_copy.drop(subsets_child2, axis = 1, inplace = True)
+
+    # Append subset of second parent if it is not redundant
+    for subset in subsets_child2_parent2:
+
+        nelements = df_copy.sum()
+
+        if not (nelements[subset] == 0):
+            subsets_child2.append(subset)
+
+            # Update dataframe
+            subset_elements = df_copy[df_copy[subset] == 1].index
+            df_copy.drop(subset_elements, axis = 0, inplace = True)
+            df_copy.drop(subset, axis = 1, inplace = True)
+
+    if not check_factibility(df, subsets_child2):
+        print('NOT FEASIBLE')
+        child2 = make_factible(df, costs, subsets_child2)
+        print('FOUND SOLUTION')
+    else:
+        print('FEASIBLE')
+        child2 = subsets_child2
+        print('FOUND SOLUTION')
+
+    child1_aux = pd.Series(np.zeros(len(costs)))
+    child1_aux[child1] = 1
+    z1 = calculatecosts(child1, costs)
+    print(z1)
+
+    child2_aux = pd.Series(np.zeros(len(costs)))
+    child2_aux[child2] = 1
+    z2 = calculatecosts(child2, costs)
+    print(z2)
+
+    zs = pd.Series([z1,z2])
+
+    return [child1_aux, child2_aux], zs
+
+def mutation(df, costs, childs):
+
+    child1 = childs[0]; child2 = childs[1]
+
+    child1 = make_factible(df, costs, child1)
+    child1_aux = pd.Series(np.zeros(len(costs)))
+    child1_aux[child1] = 1
+    z1 = calculatecosts(child1, costs)
+    print(z1)
+
+    child2 = make_factible(df, costs, child2)
+    child2_aux = pd.Series(np.zeros(len(costs)))
+    child2_aux[child2] = 1
+    z2 = calculatecosts(child2, costs)
+    print(z2)
+
+    zs = pd.Series([z1,z2])
+
+    return [child1_aux, child2_aux], zs
 
 def GA(df, costs, npop, max_time, n_childs, pmut):
 
@@ -191,7 +262,8 @@ def GA(df, costs, npop, max_time, n_childs, pmut):
         subsets: solution
     """
 
-    initial_population, zs = generate_population(df, costs, npop)
+    population, zs = generate_population(df, costs, npop)
+    print('Best initial solution %s' % zs.sort_values().iloc[0])
 
     start_time = time.perf_counter()
     done = False
@@ -201,11 +273,33 @@ def GA(df, costs, npop, max_time, n_childs, pmut):
     while not done:
         ngen += 1
 
-        for child in range(n_childs):
-            parents = tournament(npop, zs)
-            childs = crossover(df, initial_population, parents)
+        print('GENERATION N%s' % ngen)
+        child_count = 0
+        for child in range(1,n_childs,2):
+            child_count += 2
 
+            parents = tournament(zs)
+            childs, z = crossover(df, costs, population, parents)
+            print('%s CHILDS HAVE BORN' % child_count)
+
+            rand = np.random.uniform()
+
+            if rand < pmut:
+                print('MUTATION')
+                childs, z = mutation(df, costs, childs)
             
+            population = population.append(pd.Series(childs[0]), ignore_index = True)
+            population = population.append(pd.Series(childs[1]), ignore_index = True)
+            zs = zs.append(z, ignore_index = True)
 
+        print('END OF BREEDING\nMAY THE STRONGER SURVIVE')
 
+        best = zs.sort_values().iloc[:npop].index
+        population = population.iloc[best,:].reset_index(drop = True)
+        zs = zs.iloc[best].reset_index(drop = True)
 
+        time_now = time.perf_counter() - start_time
+        if time_now > max_time:
+            break
+
+    return population, zs
