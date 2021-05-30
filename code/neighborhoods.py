@@ -135,6 +135,7 @@ def first_neighborhood(df, costs, subsets):
     if len(subsets_max_cost) != 1:
         nelements = df.sum()
         nelem_subsets_max_cost = nelements.iloc[subsets_max_cost]
+        aux_max_cost = nelem_subsets_max_cost.nlargest(2)
         subset_max_elements = nelem_subsets_max_cost.max()
         max_elements_subset = nelem_subsets_max_cost[nelem_subsets_max_cost == subset_max_elements]
 
@@ -274,7 +275,12 @@ def third_neighborhood(df, costs, n, subsets):
         costs_copy1 = costs_copy.copy()
 
         # Extract cost of the subset taken into account
-        cost = max_cost[subsets_max_cost]
+        aux = max_cost[subsets_max_cost].shape
+
+        if aux == ():
+            cost = max_cost[subsets_max_cost]
+        else:
+            cost = max_cost[subsets_max_cost].sample(1).tolist()[0]
 
         zs, subset_options = T_F_add_option(df_copy1, costs_copy1, subsets, subsets_max_cost, 
                                             cost, zs, subset_options, 3)

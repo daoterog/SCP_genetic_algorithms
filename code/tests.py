@@ -13,7 +13,7 @@ path = os.path.join(datasets_path, dataset)
 df, costs = readfile(path)
 
 start_time = time.perf_counter()
-population, zs = GA(df, costs, 25, 300, 15, 0.25)
+population, zs = GA(df, costs, 10, 300, 10, 0.7)
 total_time = time.perf_counter() - start_time
 
 print(zs.sort_values())
