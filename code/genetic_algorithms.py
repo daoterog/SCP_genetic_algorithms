@@ -134,6 +134,72 @@ def make_factible(df, costs, subsets_child, neigh = 4, n = 10, n1 = 10, n2 = 10,
 
     return subsets
 
+def crossoverV3(df, costs, population, parents):
+
+    # Extract the parents
+    parent1 = population.iloc[parents[0],:]
+    parent2 = population.iloc[parents[1],:]
+
+    # Make the mix
+    gene_mix = parent1 + parent2
+    child_subsets = gene_mix[gene_mix > 0].index.tolist()
+
+    child1 = []; child2 = []
+    done = False
+
+    df_copy = df.copy()
+
+    for subset in child_subsets:
+
+        if not done:
+            nelements = df_copy.sum()
+
+            if not (nelements[subset] == 0):
+                child1.append(subset)
+
+                # Update dataframe
+                subset_elements = df_copy[df_copy[subset] == 1].index
+                df_copy.drop(subset_elements, axis = 0, inplace = True)
+                
+            df_copy.drop(subset, axis = 1, inplace = True)
+
+            # Break if solution is already reached
+            if df_copy.empty:
+                done = True
+                df_copy = df.copy()
+
+        else:
+            nelements = df_copy.sum()
+
+            if not (nelements[subset] == 0):
+                child2.append(subset)
+
+                # Update dataframe
+                subset_elements = df_copy[df_copy[subset] == 1].index
+                df_copy.drop(subset_elements, axis = 0, inplace = True)
+                
+            df_copy.drop(subset, axis = 1, inplace = True)
+
+            # Break if solution is already reached
+            if df_copy.empty:
+                break
+
+    # Improve the solution
+    child1 = make_factible(df, costs, child1)
+    child2 = make_factible(df, costs, child2)
+
+    child1_aux = pd.Series(np.zeros(len(parent1)))
+    child1_aux[child1] = 1
+    z1 = calculatecosts(child1, costs)
+
+    child2_aux = pd.Series(np.zeros(len(parent2)))
+    child2_aux[child2] = 1
+    z2 = calculatecosts(child2, costs)
+
+    zs = pd.Series([z1,z2])
+
+    return [child1_aux, child2_aux], zs
+
 def crossoverV2(df, costs, population, parents):
 
     # Extract the parents
@@ -146,12 +212,15 @@ def crossoverV2(df, costs, population, parents):
     # Child1 initial subsets
     child1_subsets = gene_mix[gene_mix == 2].index.tolist()
 
-    # Check factibitility and fix if not factible
+    # Check feasibility and fix if not factible
     if not check_factibility(df, child1_subsets):
         print('NOT FEASIBLE')
         child1_subsets = make_factible(df, costs, child1_subsets)
+        child1_subsets = make_factible(df, costs, child1_subsets)
     else:
         print('FEASIBLE')
+        print('IMPROVEMENT')
+        child1_subsets = make_factible(df, costs, child1_subsets)
 
     child1 = pd.Series(np.zeros(len(parent1)))
     child1[child1_subsets] = 1
@@ -164,8 +233,11 @@ def crossoverV2(df, costs, population, parents):
     if not check_factibility(df, child2_subsets):
         print('NOT FEASIBLE')
         child2_subsets = make_factible(df, costs, child2_subsets)
+        child2_subsets = make_factible(df, costs, child2_subsets)
     else:
         print('FEASIBLE')
+        print('IMPROVEMENT')
+        child2_subsets = make_factible(df, costs, child2_subsets)
     
     child2 = pd.Series(np.zeros(len(parent1)))
     child2[child2_subsets] = 1
@@ -174,7 +246,72 @@ def crossoverV2(df, costs, population, parents):
     zs = pd.Series([z1,z2])
 
     return [child1, child2], zs
-        
+
+def crossoverV1(df, costs, population, parents):
+
+    # Extract the parents
+    parent1 = population.iloc[parents[0],:]
+    parent2 = population.iloc[parents[1],:]
+
+    # Make the mix
+    gene_mix = parent1 + parent2
+    child_subsets = gene_mix[gene_mix > 0].index.tolist()
+
+    child1 = []; child2 = []
+    alternate = True
+
+    df_copy1 = df.copy()
+    df_copy2 = df.copy()
+
+    for subset in child_subsets:
+
+        if alternate and not df_copy1.empty:
+            alternate = False
+
+            nelements = df_copy1.sum()
+
+            if not (nelements[subset] == 0):
+                child1.append(subset)
+
+                # Update dataframe
+                subset_elements = df_copy1[df_copy1[subset] == 1].index
+                df_copy1.drop(subset_elements, axis = 0, inplace = True)
+                
+            df_copy1.drop(subset, axis = 1, inplace = True)
+
+        elif not alternate and not df_copy2.empty:
+            alternate = True
+
+            nelements = df_copy2.sum()
+
+            if not (nelements[subset] == 0):
+                child2.append(subset)
+
+                # Update dataframe
+                subset_elements = df_copy2[df_copy2[subset] == 1].index
+                df_copy2.drop(subset_elements, axis = 0, inplace = True)
+                
+            df_copy2.drop(subset, axis = 1, inplace = True)
+
+        elif df_copy1.empty and df_copy2.empty:
+            break
+
+    # Improve the solution
+    child1 = make_factible(df, costs, child1)
+    child2 = make_factible(df, costs, child2)
+
+    child1_aux = pd.Series(np.zeros(len(parent1)))
+    child1_aux[child1] = 1
+    z1 = calculatecosts(child1, costs)
+
+    child2_aux = pd.Series(np.zeros(len(parent2)))
+    child2_aux[child2] = 1
+    z2 = calculatecosts(child2, costs)
+
+    zs = pd.Series([z1,z2])
+
+    return [child1_aux, child2_aux], zs
+
 def crossover(df, costs, population, parents):
 
     """
@@ -230,9 +367,12 @@ def crossover(df, costs, population, parents):
     if not check_factibility(df, subsets_child1):
         print('NOT FEASIBLE')
         child1 = make_factible(df, costs, subsets_child1)
+        child1 = make_factible(df, costs, child1)
+        child1 = make_factible(df, costs, child1)
     else:
-        print('FEASIBLE')
-        child1 = subsets_child1
+        print('FEASIBLE\nIMPROVEMENT')
+        child1 = make_factible(df, costs, subsets_child1)
+        child1 = make_factible(df, costs, child1)
 
     # Child2
     child2_parent1 = population.iloc[parents[1],1:crosspoint]
@@ -268,9 +408,12 @@ def crossover(df, costs, population, parents):
     if not check_factibility(df, subsets_child2):
         print('NOT FEASIBLE')
         child2 = make_factible(df, costs, subsets_child2)
+        child2 = make_factible(df, costs, child2)
+        child2 = make_factible(df, costs, child2)
     else:
-        print('FEASIBLE')
-        child2 = subsets_child2
+        print('FEASIBLE\nIMPROVEMENT')
+        child2 = make_factible(df, costs, subsets_child2)
+        child2 = make_factible(df, costs, child2)
 
     child1_aux = pd.Series(np.zeros(len(costs)))
     child1_aux[child1] = 1
@@ -305,12 +448,14 @@ def mutation(df, costs, childs):
 
     # Perform mutation in Child1
     child1 = make_factible(df, costs, child1)
+    child1 = make_factible(df, costs, child1)
     child1_aux = pd.Series(np.zeros(len(costs)))
     child1_aux[child1] = 1
     z1 = calculatecosts(child1, costs)
     # print(z1)
 
     # Perform mutation in Child2
+    child2 = make_factible(df, costs, child2)
     child2 = make_factible(df, costs, child2)
     child2_aux = pd.Series(np.zeros(len(costs)))
     child2_aux[child2] = 1
@@ -348,6 +493,8 @@ def GA(df, costs, npop, max_time, n_childs, pmut):
 
     # Generations count
     ngen = 0
+    i = 1
+    best1 = 0
 
     while not done:
         ngen += 1
@@ -363,8 +510,18 @@ def GA(df, costs, npop, max_time, n_childs, pmut):
             parents = tournament(zs)
 
             # Perform crossover of the parents
-            childs, z = crossoverV2(df, costs, population, parents)
-            print('%s CHILDS HAVE BORN' % child_count)
+            if i == 1:
+                childs, z = crossover(df, costs, population, parents)
+                print('%s CHILDS HAVE BORN' % child_count)
+            elif i == 2:
+                childs, z = crossoverV1(df, costs, population, parents)
+                print('%s CHILDS HAVE BORN' % child_count)
+            elif i == 3:
+                childs, z = crossoverV3(df, costs, population, parents)
+                print('%s CHILDS HAVE BORN' % child_count)
+            else:
+                childs, z = crossoverV2(df, costs, population, parents)
+                print('%s CHILDS HAVE BORN' % child_count)
 
             rand = np.random.uniform()
 
@@ -382,6 +539,25 @@ def GA(df, costs, npop, max_time, n_childs, pmut):
 
         # Select npop best solutions and eliminate the others
         best = zs.sort_values().iloc[:npop].index
+
+        if best1 == zs.iloc[best.tolist()[0]]:
+            print('change i')
+            if i < 4:
+                i += 1
+            else:
+                i = 1
+            
+            # Generate initial population
+            print('CONTAMINATE POPULATION')
+            cont_population, cont_zs = generate_population(df, costs, n_childs)
+            population = population.append(cont_population, ignore_index = True)
+            zs = zs.append(cont_zs, ignore_index = True)
+        else:
+            best1 = zs.iloc[best.tolist()[0]]
+            i = 1
+            print(best1)
+
+        print(i)
         population = population.iloc[best,:].reset_index(drop = True)
         zs = zs.iloc[best].reset_index(drop = True)
 
