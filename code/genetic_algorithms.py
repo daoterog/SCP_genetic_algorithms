@@ -1,5 +1,5 @@
-from auxiliaries import check_factibility, calculatecosts
-from neighborhoods import find_neighborhoods
+from .auxiliaries import check_factibility, calculatecosts
+from .neighborhoods import find_neighborhoods
 import numpy as np
 import pandas as pd
 import time
@@ -186,6 +186,8 @@ def crossoverV3(df, costs, population, parents):
 
     # Improve the solution
     child1 = make_factible(df, costs, child1)
+    child1 = make_factible(df, costs, child1)
+    child2 = make_factible(df, costs, child2)
     child2 = make_factible(df, costs, child2)
 
     child1_aux = pd.Series(np.zeros(len(parent1)))
@@ -217,9 +219,11 @@ def crossoverV2(df, costs, population, parents):
         print('NOT FEASIBLE')
         child1_subsets = make_factible(df, costs, child1_subsets)
         child1_subsets = make_factible(df, costs, child1_subsets)
+        child1_subsets = make_factible(df, costs, child1_subsets)
     else:
         print('FEASIBLE')
         print('IMPROVEMENT')
+        child1_subsets = make_factible(df, costs, child1_subsets)
         child1_subsets = make_factible(df, costs, child1_subsets)
 
     child1 = pd.Series(np.zeros(len(parent1)))
@@ -234,9 +238,11 @@ def crossoverV2(df, costs, population, parents):
         print('NOT FEASIBLE')
         child2_subsets = make_factible(df, costs, child2_subsets)
         child2_subsets = make_factible(df, costs, child2_subsets)
+        child2_subsets = make_factible(df, costs, child2_subsets)
     else:
         print('FEASIBLE')
         print('IMPROVEMENT')
+        child2_subsets = make_factible(df, costs, child2_subsets)
         child2_subsets = make_factible(df, costs, child2_subsets)
     
     child2 = pd.Series(np.zeros(len(parent1)))
@@ -298,6 +304,8 @@ def crossoverV1(df, costs, population, parents):
 
     # Improve the solution
     child1 = make_factible(df, costs, child1)
+    child1 = make_factible(df, costs, child1)
+    child2 = make_factible(df, costs, child2)
     child2 = make_factible(df, costs, child2)
 
     child1_aux = pd.Series(np.zeros(len(parent1)))
@@ -568,4 +576,10 @@ def GA(df, costs, npop, max_time, n_childs, pmut):
         if time_now > max_time:
             break
 
-    return population, zs
+    z_min = zs.iloc[0]
+    best_solution = population.iloc[0,:]
+    best_subsets = best_solution[best_solution == 1].index.tolist()
+
+    best_subsets = [subset + 1 for subset in best_subsets]
+
+    return z_min, best_subsets

@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 import time
 
-from neighborhoods import solution_generator, aux_neighborhoods, LS_neighborhoods
-from auxiliaries import calculatecosts
+from .neighborhoods import solution_generator, aux_neighborhoods, LS_neighborhoods
+from .auxiliaries import calculatecosts
 
 def VND(df, costs, n = 2, n1 = 10, n2 = 10, alpha = 0.3, nsol = 20):
 
@@ -68,6 +68,8 @@ def VND(df, costs, n = 2, n1 = 10, n2 = 10, alpha = 0.3, nsol = 20):
             break
 
     print('Final Solution: %s' % cost_before)
+
+    subsets_before = [subset + 1 for subset in subsets_before]
     
     return cost_before, subsets_before
 
@@ -144,6 +146,8 @@ def VNS(df, costs, n = 2, n1 = 10, n2 = 10, alpha = 0.3, nsol = 20):
             neigh += 1
 
     print('Final Solution: %s' % cost_before)
+
+    subsets_before = [subset + 1 for subset in subsets_before]
 
     return cost_before, subsets_before
 
@@ -246,6 +250,8 @@ def SA(df, costs, T0, Tf, L, r, neigh = 3, n = 2, n1 = 10, n2 = 10, alpha = 0.3,
 
     print('Final Solution: %s' % best_cost)
 
+    best_subsets = [subset + 1 for subset in best_subsets]
+
     return best_cost, best_subsets
 
 def LS(df, costs, neigh, n = 2, n1 = 10, n2 = 10, alpha = 0.3, nsol = 20):
@@ -308,5 +314,7 @@ def LS(df, costs, neigh, n = 2, n1 = 10, n2 = 10, alpha = 0.3, nsol = 20):
     subsets = subset_options[rand_min]
 
     print('Final Solution: %s' % min_zs)
+
+    subsets = [subset + 1 for subset in subsets]
 
     return min_zs, subsets

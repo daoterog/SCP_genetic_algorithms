@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np 
 import time
 
-from auxiliaries import calculatecosts
+from .auxiliaries import calculatecosts
 
 def find_lower_cost_subsets(df, costs, reference_cost):
     df_copy1 = df.copy()

@@ -1,5 +1,5 @@
-from readfile import readfile
-from genetic_algorithms import GA
+from .readfile import readfile
+from .genetic_algorithms import GA
 
 import os
 import time
@@ -13,8 +13,9 @@ path = os.path.join(datasets_path, dataset)
 df, costs = readfile(path)
 
 start_time = time.perf_counter()
-population, zs = GA(df, costs, 50, 300, 50, 0.3)
+z, subsets = GA(df, costs, 16, 300, 16, 0.3)
 total_time = time.perf_counter() - start_time
 
-print(zs.sort_values())
+print(z)
+print(subsets)
 print(total_time)
