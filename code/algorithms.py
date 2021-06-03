@@ -107,7 +107,6 @@ def VNS(df, costs, n = 2, n1 = 10, n2 = 10, alpha = 0.3, nsol = 20):
 
     # Start neighborhood search
     while neigh <= 4:
-        print(j)
 
         # Find solution that belongs to the j neighborhood
         new_subsets = aux_neighborhoods(df, costs, subsets_before, neigh, n, n1, n2, alpha, nsol)
